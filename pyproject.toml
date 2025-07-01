@@ -1,26 +1,26 @@
 [project]
-name = "bonacci"
-version = "0.0.0"
+name = "mact"
+version = "0.1.0"
 dependencies = []
 requires-python = ">=3.13"
 authors = [
-    {name = "Leonardo Bonacci", email = "leonardo@bonacci.com"},
+    {name = "Alfi Maulana", email = "alfi.maulana.f@gmail.com"},
 ]
-description = "An example Python project for generating a Fibonacci sequence"
+description = "A minimal implementation of the Action Chunking with Transformers (ACT) policy "
 readme = "README.md"
 license = "MIT"
-keywords = ["example", "fibonacci"]
+keywords = ["act", "transformers", "robot-policy"]
 classifiers = [
     "Development Status :: 1 - Planning",
     "Programming Language :: Python :: 3 :: Only",
 ]
 
 [project.scripts]
-bonacci = "bonacci.__main__:main"
+mact = "mact.__main__:main"
 
 [project.urls]
-repository = "https://github.com/leonardo/bonacci.git"
-issues = "https://github.com/leonardo/bonacci/issues"
+repository = "https://github.com/threeal/minimal-act-policy.git"
+issues = "https://github.com/threeal/minimal-act-policy/issues"
 
 [build-system]
 requires = ["hatchling"]
