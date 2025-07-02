@@ -17,13 +17,6 @@ def main() -> None:
         "--ckpt_dir", action="store", type=str, help="ckpt_dir", required=True
     )
     train_parser.add_argument(
-        "--policy_class",
-        action="store",
-        type=str,
-        help="policy_class, capitalize",
-        required=True,
-    )
-    train_parser.add_argument(
         "--task_name", action="store", type=str, help="task_name", required=True
     )
     train_parser.add_argument(

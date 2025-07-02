@@ -6,6 +6,7 @@ import pickle
 from copy import deepcopy
 from tqdm import tqdm
 
+from .constants import SIM_TASK_CONFIGS
 from .utils import load_data  # data functions
 from .utils import sample_box_pose, sample_insertion_pose  # robot functions
 from .utils import compute_dict_mean, set_seed, detach_dict  # helper functions
@@ -16,7 +17,6 @@ def train_model(args: argparse.Namespace) -> None:
     set_seed(1)
     # command line parameters
     ckpt_dir = args.ckpt_dir
-    policy_class = args.policy_class
     onscreen_render = args.onscreen_render
     task_name = args.task_name
     batch_size_train = args.batch_size
@@ -25,14 +25,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     # get task parameters
     is_sim = task_name[:4] == "sim_"
-    if is_sim:
-        from .constants import SIM_TASK_CONFIGS
-
-        task_config = SIM_TASK_CONFIGS[task_name]
-    else:
-        from aloha_scripts.constants import TASK_CONFIGS
-
-        task_config = TASK_CONFIGS[task_name]
+    task_config = SIM_TASK_CONFIGS[task_name]
     dataset_dir = task_config["dataset_dir"]
     num_episodes = task_config["num_episodes"]
     episode_len = task_config["episode_len"]
@@ -42,33 +35,22 @@ def train_model(args: argparse.Namespace) -> None:
     state_dim = 14
     lr_backbone = 1e-5
     backbone = "resnet18"
-    if policy_class == "ACT":
-        enc_layers = 4
-        dec_layers = 7
-        nheads = 8
-        policy_config = {
-            "lr": args.lr,
-            "num_queries": args.chunk_size,
-            "kl_weight": args.kl_weight,
-            "hidden_dim": args.hidden_dim,
-            "dim_feedforward": args.dim_feedforward,
-            "lr_backbone": lr_backbone,
-            "backbone": backbone,
-            "enc_layers": enc_layers,
-            "dec_layers": dec_layers,
-            "nheads": nheads,
-            "camera_names": camera_names,
-        }
-    elif policy_class == "CNNMLP":
-        policy_config = {
-            "lr": args.lr,
-            "lr_backbone": lr_backbone,
-            "backbone": backbone,
-            "num_queries": 1,
-            "camera_names": camera_names,
-        }
-    else:
-        raise NotImplementedError
+    enc_layers = 4
+    dec_layers = 7
+    nheads = 8
+    policy_config = {
+        "lr": args.lr,
+        "num_queries": args.chunk_size,
+        "kl_weight": args.kl_weight,
+        "hidden_dim": args.hidden_dim,
+        "dim_feedforward": args.dim_feedforward,
+        "lr_backbone": lr_backbone,
+        "backbone": backbone,
+        "enc_layers": enc_layers,
+        "dec_layers": dec_layers,
+        "nheads": nheads,
+        "camera_names": camera_names,
+    }
 
     config = {
         "num_epochs": num_epochs,
@@ -76,14 +58,12 @@ def train_model(args: argparse.Namespace) -> None:
         "episode_len": episode_len,
         "state_dim": state_dim,
         "lr": args.lr,
-        "policy_class": policy_class,
         "onscreen_render": onscreen_render,
         "policy_config": policy_config,
         "task_name": task_name,
         "seed": args.seed,
         "temporal_agg": args.temporal_agg,
         "camera_names": camera_names,
-        "real_robot": not is_sim,
     }
 
     train_dataloader, val_dataloader, stats, _ = load_data(
@@ -106,39 +86,17 @@ def train_model(args: argparse.Namespace) -> None:
     print(f"Best ckpt, val loss {min_val_loss:.6f} @ epoch{best_epoch}")
 
 
-def make_optimizer(policy_class, policy):
-    if policy_class == "ACT":
-        optimizer = policy.configure_optimizers()
-    elif policy_class == "CNNMLP":
-        optimizer = policy.configure_optimizers()
-    else:
-        raise NotImplementedError
-    return optimizer
-
-
-def forward_pass(data, policy):
-    image_data, qpos_data, action_data, is_pad = data
-    image_data, qpos_data, action_data, is_pad = (
-        image_data.cuda(),
-        qpos_data.cuda(),
-        action_data.cuda(),
-        is_pad.cuda(),
-    )
-    return policy(qpos_data, image_data, action_data, is_pad)  # TODO remove None
-
-
 def train_bc(train_dataloader, val_dataloader, config):
     num_epochs = config["num_epochs"]
     ckpt_dir = config["ckpt_dir"]
     seed = config["seed"]
-    policy_class = config["policy_class"]
     policy_config = config["policy_config"]
 
     set_seed(seed)
 
     policy = ACTPolicy(policy_config)
     policy.cuda()
-    optimizer = make_optimizer(policy_class, policy)
+    optimizer = policy.configure_optimizers()
 
     train_history = []
     validation_history = []
@@ -151,7 +109,13 @@ def train_bc(train_dataloader, val_dataloader, config):
             policy.eval()
             epoch_dicts = []
             for batch_idx, data in enumerate(val_dataloader):
-                forward_dict = forward_pass(data, policy)
+                image_data, qpos_data, action_data, is_pad = data
+                forward_dict = policy(
+                    qpos_data.cuda(),
+                    image_data.cuda(),
+                    action_data.cuda(),
+                    is_pad.cuda(),
+                )
                 epoch_dicts.append(forward_dict)
             epoch_summary = compute_dict_mean(epoch_dicts)
             validation_history.append(epoch_summary)
@@ -170,7 +134,10 @@ def train_bc(train_dataloader, val_dataloader, config):
         policy.train()
         optimizer.zero_grad()
         for batch_idx, data in enumerate(train_dataloader):
-            forward_dict = forward_pass(data, policy)
+            image_data, qpos_data, action_data, is_pad = data
+            forward_dict = policy(
+                qpos_data.cuda(), image_data.cuda(), action_data.cuda(), is_pad.cuda()
+            )
             # backward
             loss = forward_dict["loss"]
             loss.backward()
