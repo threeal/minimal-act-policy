@@ -12,8 +12,6 @@ class EpisodicDataset(torch.utils.data.Dataset):
         self.dataset_dir = dataset_dir
         self.camera_names = camera_names
         self.norm_stats = norm_stats
-        self.is_sim = None
-        self.__getitem__(0)  # initialize self.is_sim
 
     def __len__(self):
         return len(self.episode_ids)
@@ -24,7 +22,6 @@ class EpisodicDataset(torch.utils.data.Dataset):
         episode_id = self.episode_ids[index]
         dataset_path = os.path.join(self.dataset_dir, f"episode_{episode_id}.hdf5")
         with h5py.File(dataset_path, "r") as root:
-            is_sim = root.attrs["sim"]
             original_action_shape = root["/action"].shape
             episode_len = original_action_shape[0]
             if sample_full_episode:
@@ -39,19 +36,10 @@ class EpisodicDataset(torch.utils.data.Dataset):
                 image_dict[cam_name] = root[f"/observations/images/{cam_name}"][
                     start_ts
                 ]
-            # get all actions after and including start_ts
-            if is_sim:
-                action = root["/action"][start_ts:]
-                action_len = episode_len - start_ts
-            else:
-                action = root["/action"][
-                    max(0, start_ts - 1) :
-                ]  # hack, to make timesteps more aligned
-                action_len = episode_len - max(
-                    0, start_ts - 1
-                )  # hack, to make timesteps more aligned
 
-        self.is_sim = is_sim
+            action = root["/action"][start_ts:]
+            action_len = episode_len - start_ts
+
         padded_action = np.zeros(original_action_shape, dtype=np.float32)
         padded_action[:action_len] = action
         is_pad = np.zeros(episode_len)
@@ -155,51 +143,8 @@ def load_data(
         prefetch_factor=1,
     )
 
-    return train_dataloader, val_dataloader, norm_stats, train_dataset.is_sim
+    return train_dataloader, val_dataloader, norm_stats
 
-
-### env utils
-
-
-def sample_box_pose():
-    x_range = [0.0, 0.2]
-    y_range = [0.4, 0.6]
-    z_range = [0.05, 0.05]
-
-    ranges = np.vstack([x_range, y_range, z_range])
-    cube_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
-
-    cube_quat = np.array([1, 0, 0, 0])
-    return np.concatenate([cube_position, cube_quat])
-
-
-def sample_insertion_pose():
-    # Peg
-    x_range = [0.1, 0.2]
-    y_range = [0.4, 0.6]
-    z_range = [0.05, 0.05]
-
-    ranges = np.vstack([x_range, y_range, z_range])
-    peg_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
-
-    peg_quat = np.array([1, 0, 0, 0])
-    peg_pose = np.concatenate([peg_position, peg_quat])
-
-    # Socket
-    x_range = [-0.2, -0.1]
-    y_range = [0.4, 0.6]
-    z_range = [0.05, 0.05]
-
-    ranges = np.vstack([x_range, y_range, z_range])
-    socket_position = np.random.uniform(ranges[:, 0], ranges[:, 1])
-
-    socket_quat = np.array([1, 0, 0, 0])
-    socket_pose = np.concatenate([socket_position, socket_quat])
-
-    return peg_pose, socket_pose
-
-
-### helper functions
 
 
 def compute_dict_mean(epoch_dicts):

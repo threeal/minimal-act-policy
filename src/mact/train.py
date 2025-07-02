@@ -7,7 +7,6 @@ from copy import deepcopy
 from tqdm import tqdm
 
 from .utils import load_data  # data functions
-from .utils import sample_box_pose, sample_insertion_pose  # robot functions
 from .utils import compute_dict_mean, set_seed, detach_dict  # helper functions
 from .policy import ACTPolicy
 
@@ -57,7 +56,7 @@ def train_model(args: argparse.Namespace) -> None:
         "camera_names": CAMERA_NAMES,
     }
 
-    train_dataloader, val_dataloader, stats, _ = load_data(
+    train_dataloader, val_dataloader, stats = load_data(
         DATASET_DIR, NUM_EPISODES, CAMERA_NAMES, batch_size_train, batch_size_val
     )
 
