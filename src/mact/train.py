@@ -6,30 +6,26 @@ import pickle
 from copy import deepcopy
 from tqdm import tqdm
 
-from .constants import SIM_TASK_CONFIGS
 from .utils import load_data  # data functions
 from .utils import sample_box_pose, sample_insertion_pose  # robot functions
 from .utils import compute_dict_mean, set_seed, detach_dict  # helper functions
 from .policy import ACTPolicy
 
+CKPT_DIR = "ckpt"
+DATASET_DIR = "dataset"
+NUM_EPISODES = 50
+EPISODE_LEN = 400
+CAMERA_NAMES = ["top"]
+
 
 def train_model(args: argparse.Namespace) -> None:
     set_seed(1)
     # command line parameters
-    ckpt_dir = args.ckpt_dir
     onscreen_render = args.onscreen_render
     task_name = args.task_name
     batch_size_train = args.batch_size
     batch_size_val = args.batch_size
     num_epochs = args.num_epochs
-
-    # get task parameters
-    is_sim = task_name[:4] == "sim_"
-    task_config = SIM_TASK_CONFIGS[task_name]
-    dataset_dir = task_config["dataset_dir"]
-    num_episodes = task_config["num_episodes"]
-    episode_len = task_config["episode_len"]
-    camera_names = task_config["camera_names"]
 
     # fixed parameters
     state_dim = 14
@@ -49,13 +45,12 @@ def train_model(args: argparse.Namespace) -> None:
         "enc_layers": enc_layers,
         "dec_layers": dec_layers,
         "nheads": nheads,
-        "camera_names": camera_names,
+        "camera_names": CAMERA_NAMES,
     }
 
     config = {
         "num_epochs": num_epochs,
-        "ckpt_dir": ckpt_dir,
-        "episode_len": episode_len,
+        "episode_len": EPISODE_LEN,
         "state_dim": state_dim,
         "lr": args.lr,
         "onscreen_render": onscreen_render,
@@ -63,17 +58,16 @@ def train_model(args: argparse.Namespace) -> None:
         "task_name": task_name,
         "seed": args.seed,
         "temporal_agg": args.temporal_agg,
-        "camera_names": camera_names,
+        "camera_names": CAMERA_NAMES,
     }
 
     train_dataloader, val_dataloader, stats, _ = load_data(
-        dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val
+        DATASET_DIR, NUM_EPISODES, CAMERA_NAMES, batch_size_train, batch_size_val
     )
 
     # save dataset stats
-    if not os.path.isdir(ckpt_dir):
-        os.makedirs(ckpt_dir)
-    stats_path = os.path.join(ckpt_dir, f"dataset_stats.pkl")
+    os.makedirs(CKPT_DIR, exist_ok=True)
+    stats_path = os.path.join(CKPT_DIR, f"dataset_stats.pkl")
     with open(stats_path, "wb") as f:
         pickle.dump(stats, f)
 
@@ -81,14 +75,13 @@ def train_model(args: argparse.Namespace) -> None:
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
 
     # save best checkpoint
-    ckpt_path = os.path.join(ckpt_dir, f"policy_best.ckpt")
+    ckpt_path = os.path.join(CKPT_DIR, f"policy_best.ckpt")
     torch.save(best_state_dict, ckpt_path)
     print(f"Best ckpt, val loss {min_val_loss:.6f} @ epoch{best_epoch}")
 
 
 def train_bc(train_dataloader, val_dataloader, config):
     num_epochs = config["num_epochs"]
-    ckpt_dir = config["ckpt_dir"]
     seed = config["seed"]
     policy_config = config["policy_config"]
 
@@ -155,14 +148,14 @@ def train_bc(train_dataloader, val_dataloader, config):
         print(summary_string)
 
         if epoch % 100 == 0:
-            ckpt_path = os.path.join(ckpt_dir, f"policy_epoch_{epoch}_seed_{seed}.ckpt")
+            ckpt_path = os.path.join(CKPT_DIR, f"policy_epoch_{epoch}_seed_{seed}.ckpt")
             torch.save(policy.state_dict(), ckpt_path)
 
-    ckpt_path = os.path.join(ckpt_dir, f"policy_last.ckpt")
+    ckpt_path = os.path.join(CKPT_DIR, f"policy_last.ckpt")
     torch.save(policy.state_dict(), ckpt_path)
 
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
-    ckpt_path = os.path.join(ckpt_dir, f"policy_epoch_{best_epoch}_seed_{seed}.ckpt")
+    ckpt_path = os.path.join(CKPT_DIR, f"policy_epoch_{best_epoch}_seed_{seed}.ckpt")
     torch.save(best_state_dict, ckpt_path)
     print(
         f"Training finished:\nSeed {seed}, val loss {min_val_loss:.6f} at epoch {best_epoch}"

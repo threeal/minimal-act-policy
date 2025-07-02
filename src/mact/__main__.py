@@ -14,9 +14,6 @@ def main() -> None:
     train_parser.add_argument("--eval", action="store_true")
     train_parser.add_argument("--onscreen_render", action="store_true")
     train_parser.add_argument(
-        "--ckpt_dir", action="store", type=str, help="ckpt_dir", required=True
-    )
-    train_parser.add_argument(
         "--task_name", action="store", type=str, help="task_name", required=True
     )
     train_parser.add_argument(
