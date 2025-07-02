@@ -21,8 +21,6 @@ CAMERA_NAMES = ["top"]
 def train_model(args: argparse.Namespace) -> None:
     set_seed(1)
     # command line parameters
-    onscreen_render = args.onscreen_render
-    task_name = args.task_name
     batch_size_train = args.batch_size
     batch_size_val = args.batch_size
     num_epochs = args.num_epochs
@@ -53,9 +51,7 @@ def train_model(args: argparse.Namespace) -> None:
         "episode_len": EPISODE_LEN,
         "state_dim": state_dim,
         "lr": args.lr,
-        "onscreen_render": onscreen_render,
         "policy_config": policy_config,
-        "task_name": task_name,
         "seed": args.seed,
         "temporal_agg": args.temporal_agg,
         "camera_names": CAMERA_NAMES,

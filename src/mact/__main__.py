@@ -11,11 +11,6 @@ def main() -> None:
     train_parser = subparsers.add_parser("train", help="train ACT model from a dataset")
     train_parser.set_defaults(func=train_model)
 
-    train_parser.add_argument("--eval", action="store_true")
-    train_parser.add_argument("--onscreen_render", action="store_true")
-    train_parser.add_argument(
-        "--task_name", action="store", type=str, help="task_name", required=True
-    )
     train_parser.add_argument(
         "--batch_size", action="store", type=int, help="batch_size", required=True
     )
