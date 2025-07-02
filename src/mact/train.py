@@ -13,7 +13,6 @@ from .policy import ACTPolicy
 
 CKPT_DIR = "ckpt"
 DATASET_DIR = Path("dataset")
-NUM_EPISODES = 50
 EPISODE_LEN = 400
 CAMERA_NAMES = ["top"]
 
@@ -57,9 +56,7 @@ def train_model(args: argparse.Namespace) -> None:
         "camera_names": CAMERA_NAMES,
     }
 
-    datasets_loader = DatasetsLoader(
-        DATASET_DIR, NUM_EPISODES, CAMERA_NAMES, args.batch_size
-    )
+    datasets_loader = DatasetsLoader(DATASET_DIR, CAMERA_NAMES, args.batch_size)
 
     # save dataset stats
     os.makedirs(CKPT_DIR, exist_ok=True)

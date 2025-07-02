@@ -10,12 +10,11 @@ class DatasetsLoader:
     TRAIN_RATIO = 0.8
 
     class NormStats:
-        def __init__(self, dataset_dir: Path, num_episodes: int) -> None:
+        def __init__(self, eps_files: list[Path]) -> None:
             all_qpos_data = []
             all_action_data = []
-            for episode_idx in range(num_episodes):
-                dataset_path = dataset_dir / f"episode_{episode_idx}.hdf5"
-                with h5py.File(dataset_path, "r") as root:
+            for eps_file in eps_files:
+                with h5py.File(eps_file, "r") as root:
                     qpos = root["/observations/qpos"][()]
                     action = root["/action"][()]
                 all_qpos_data.append(torch.from_numpy(qpos))
@@ -53,28 +52,23 @@ class DatasetsLoader:
     class Dataset(torch.utils.data.Dataset):
         def __init__(
             self,
-            episode_ids: list[int],
-            dataset_dir: str,
+            eps_files: list[Path],
             camera_names: list[str],
             norm_stats: "DatasetsLoader.NormStats",
         ) -> None:
             super().__init__()
-            self.episode_ids = episode_ids
-            self.dataset_dir = dataset_dir
+            self.eps_files = eps_files
             self.camera_names = camera_names
             self.norm_stats = norm_stats
-
             self.rng = np.random.default_rng()
 
         def __len__(self) -> int:
-            return len(self.episode_ids)
+            return len(self.eps_files)
 
         def __getitem__(self, index: int) -> any:
             sample_full_episode = False  # hardcode
 
-            episode_id = self.episode_ids[index]
-            dataset_path = self.dataset_dir / f"episode_{episode_id}.hdf5"
-            with h5py.File(dataset_path, "r") as root:
+            with h5py.File(self.eps_files[index], "r") as root:
                 original_action_shape = root["/action"].shape
                 episode_len = original_action_shape[0]
                 start_ts = 0 if sample_full_episode else self.rng.choice(episode_len)
@@ -121,20 +115,19 @@ class DatasetsLoader:
     def __init__(
         self,
         dataset_dir: Path,
-        num_episodes: int,
         camera_names: list[str],
         batch_size: int,
     ) -> None:
-        rng = np.random.default_rng()
-        shuffled_indices = rng.permutation(num_episodes)
+        eps_files = list(dataset_dir.glob("*.hdf5"))
+        eps_files = np.random.default_rng().permutation(eps_files)
 
-        train_indices = shuffled_indices[: int(self.TRAIN_RATIO * num_episodes)]
-        validate_indices = shuffled_indices[int(self.TRAIN_RATIO * num_episodes) :]
+        train_eps_files = eps_files[: int(self.TRAIN_RATIO * len(eps_files))]
+        validate_eps_files = eps_files[int(self.TRAIN_RATIO * len(eps_files)) :]
 
-        self.norm_stats = self.NormStats(dataset_dir, num_episodes)
+        self.norm_stats = self.NormStats(eps_files)
 
         self.train = torch.utils.data.DataLoader(
-            self.Dataset(train_indices, dataset_dir, camera_names, self.norm_stats),
+            self.Dataset(train_eps_files, camera_names, self.norm_stats),
             batch_size=batch_size,
             shuffle=True,
             pin_memory=True,
@@ -143,7 +136,7 @@ class DatasetsLoader:
         )
 
         self.validate = torch.utils.data.DataLoader(
-            self.Dataset(validate_indices, dataset_dir, camera_names, self.norm_stats),
+            self.Dataset(validate_eps_files, camera_names, self.norm_stats),
             batch_size=batch_size,
             shuffle=True,
             pin_memory=True,
