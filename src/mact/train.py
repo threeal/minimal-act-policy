@@ -2,16 +2,17 @@ import argparse
 import torch
 import numpy as np
 import os
+from pathlib import Path
 import pickle
 from copy import deepcopy
 from tqdm import tqdm
 
-from .utils import load_data  # data functions
+from .dataset import DatasetsLoader
 from .utils import compute_dict_mean, set_seed, detach_dict  # helper functions
 from .policy import ACTPolicy
 
 CKPT_DIR = "ckpt"
-DATASET_DIR = "dataset"
+DATASET_DIR = Path("dataset")
 NUM_EPISODES = 50
 EPISODE_LEN = 400
 CAMERA_NAMES = ["top"]
@@ -56,17 +57,16 @@ def train_model(args: argparse.Namespace) -> None:
         "camera_names": CAMERA_NAMES,
     }
 
-    train_dataloader, val_dataloader, stats = load_data(
-        DATASET_DIR, NUM_EPISODES, CAMERA_NAMES, batch_size_train, batch_size_val
+    datasets_loader = DatasetsLoader(
+        DATASET_DIR, NUM_EPISODES, CAMERA_NAMES, args.batch_size
     )
 
     # save dataset stats
     os.makedirs(CKPT_DIR, exist_ok=True)
     stats_path = os.path.join(CKPT_DIR, f"dataset_stats.pkl")
-    with open(stats_path, "wb") as f:
-        pickle.dump(stats, f)
+    datasets_loader.norm_stats.dump(stats_path)
 
-    best_ckpt_info = train_bc(train_dataloader, val_dataloader, config)
+    best_ckpt_info = train_bc(datasets_loader.train, datasets_loader.validate, config)
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
 
     # save best checkpoint
