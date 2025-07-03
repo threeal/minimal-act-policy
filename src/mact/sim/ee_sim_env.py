@@ -64,7 +64,7 @@ class BimanualViperXEETask(base.Task):
 
     def initialize_robots(self, physics):
         # reset joint position
-        # physics.named.data.qpos[:16] = START_ARM_POSE
+        physics.named.data.qpos[:16] = START_ARM_POSE
 
         # reset mocap to align with end effector
         # to obtain these numbers:
@@ -72,11 +72,11 @@ class BimanualViperXEETask(base.Task):
         # (2) get env._physics.named.data.xpos['vx300s_left/gripper_link']
         #     get env._physics.named.data.xquat['vx300s_left/gripper_link']
         #     repeat the same for right side
-        # np.copyto(physics.data.mocap_pos[0], [-0.31718881, 0.5, 0.29525084])
-        # np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
+        np.copyto(physics.data.mocap_pos[0], [-0.305, 0.50, 0.175])
+        np.copyto(physics.data.mocap_quat[0], [1, 0, 0, 0])
         # # right
-        # np.copyto(physics.data.mocap_pos[1], np.array([0.31718881, 0.49999888, 0.29525084]))
-        # np.copyto(physics.data.mocap_quat[1],  [1, 0, 0, 0])
+        np.copyto(physics.data.mocap_pos[1], [0.305, 0.50, 0.175])
+        np.copyto(physics.data.mocap_quat[1],  [1, 0, 0, 0])
 
         # reset gripper control
         # close_gripper_control = np.array([

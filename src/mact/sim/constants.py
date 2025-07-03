@@ -35,15 +35,15 @@ SIM_TASK_CONFIGS = {
 ### Simulation envs fixed constants
 DT = 0.02
 JOINT_NAMES = ["waist", "shoulder", "elbow", "forearm_roll", "wrist_angle", "wrist_rotate"]
-START_ARM_POSE = [0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239,  0, -0.96, 1.16, 0, -0.3, 0, 0.02239, -0.02239]
+START_ARM_POSE = [0, 1.57079633, 0, 0, -1.57079633, 0, 0, 0,  0, 1.57079633, 0, 0, -1.57079633, 0, 0, 0]
 
 XML_DIR = 'assets'
 
 # Left finger position limits (qpos[7]), right_finger = -1 * left_finger
-MASTER_GRIPPER_POSITION_OPEN = 0.03800
-MASTER_GRIPPER_POSITION_CLOSE = 0.01244
-PUPPET_GRIPPER_POSITION_OPEN = 0.03800
-PUPPET_GRIPPER_POSITION_CLOSE = 0.01244
+MASTER_GRIPPER_POSITION_OPEN = 0.05
+MASTER_GRIPPER_POSITION_CLOSE = 0.015
+PUPPET_GRIPPER_POSITION_OPEN = 0.05
+PUPPET_GRIPPER_POSITION_CLOSE = 0.015
 
 # Gripper joint limits (qpos[6])
 MASTER_GRIPPER_JOINT_OPEN = 0.3083

@@ -1,5 +1,5 @@
 <mujocoinclude>
-    <body name="piper_left" pos="-0.469 0.5 0">
+    <body name="piper_left" pos="-0.569 0.5 0">
         <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="base_link" />
         <body name="piper_left/link1" pos="0 0 0.123">
             <inertial pos="0.000121505 0.000104632 -0.00438597" quat="0.682111 0.730899 0.0143111 -0.0175062" mass="0.71" diaginertia="0.000489262 0.000439887 0.000404551" />
