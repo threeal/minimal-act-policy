@@ -71,10 +71,11 @@ def record_simulation(_: argparse.Namespace) -> None:
         # replace gripper pose with gripper control
         gripper_ctrl_traj = [ts.observation['gripper_ctrl'] for ts in episode]
         for joint, ctrl in zip(joint_traj, gripper_ctrl_traj):
-            left_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[0])
-            right_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[2])
-            joint[6] = left_ctrl
-            joint[6+7] = right_ctrl
+            # left_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[0])
+            # right_ctrl = PUPPET_GRIPPER_POSITION_NORMALIZE_FN(ctrl[2])
+            # joint[6] = left_ctrl
+            # joint[6+7] = right_ctrl
+            pass
 
         subtask_info = episode[0].observation['env_state'].copy() # box pose at step 0
 

@@ -1,23 +1,23 @@
 <mujoco>
     <include file="scene.xml"/>
-    <include file="vx300s_dependencies.xml"/>
+    <include file="piper_dependencies.xml"/>
 
     <equality>
-        <weld body1="mocap_left" body2="vx300s_left/gripper_link" solref="0.01 1" solimp="2 0.99 0.001" />
-        <weld body1="mocap_right" body2="vx300s_right/gripper_link" solref="0.01 1" solimp="2 0.99 0.001" />
+        <weld body1="mocap_left" body2="piper_left/link6"  solref="0.01 1" solimp="2 0.99 0.001" />
+        <weld body1="mocap_right" body2="piper_right/link6" solref="0.01 1" solimp="2 0.99 0.001" />
     </equality>
 
 
     <worldbody>
-        <include file="vx300s_left.xml" />
-        <include file="vx300s_right.xml" />
+        <include file="piper_left.xml" />
+        <include file="piper_right.xml" />
 
-        <body mocap="true" name="mocap_left" pos="0.095 0.50 0.425">
+        <body mocap="true" name="mocap_left" pos="-0.31 0.50 0.21" euler="0 0 0">
             <site pos="0 0 0" size="0.003 0.003 0.03" type="box" name="mocap_left_site1" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.003 0.03 0.003" type="box" name="mocap_left_site2" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.03 0.003 0.003" type="box" name="mocap_left_site3" rgba="1 0 0 1"/>
         </body>
-        <body mocap="true" name="mocap_right" pos="-0.095 0.50 0.425">
+        <body mocap="true" name="mocap_right" pos="0.31 0.50 0.21" euler="0 0 0">
             <site pos="0 0 0" size="0.003 0.003 0.03" type="box" name="mocap_right_site1" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.003 0.03 0.003" type="box" name="mocap_right_site2" rgba="1 0 0 1"/>
             <site pos="0 0 0" size="0.03 0.003 0.003" type="box" name="mocap_right_site3" rgba="1 0 0 1"/>
@@ -32,17 +32,11 @@
     </worldbody>
 
     <actuator>
-        <position ctrllimited="true" ctrlrange="0.021 0.057" joint="vx300s_left/left_finger" kp="200"  user="1"/>
-        <position ctrllimited="true" ctrlrange="-0.057 -0.021" joint="vx300s_left/right_finger" kp="200"  user="1"/>
+        <position name="piper_left/joint7" ctrllimited="true" ctrlrange="0 0.0475" joint="piper_left/joint7" kp="10000" user="1" forcelimited="false"/>
+        <position name="piper_left/joint8" ctrllimited="true" ctrlrange="-0.0475 0" joint="piper_left/joint8" kp="10000" user="1" forcelimited="false"/>
 
-        <position ctrllimited="true" ctrlrange="0.021 0.057" joint="vx300s_right/left_finger" kp="200"  user="1"/>
-        <position ctrllimited="true" ctrlrange="-0.057 -0.021" joint="vx300s_right/right_finger" kp="200"  user="1"/>
-
+        <position name="piper_right/joint7" ctrllimited="true" ctrlrange="0 0.0475" joint="piper_right/joint7" kp="10000" user="1" forcelimited="false"/>
+        <position name="piper_right/joint8" ctrllimited="true" ctrlrange="-0.0475 0" joint="piper_right/joint8" kp="10000" user="1" forcelimited="false"/>
     </actuator>
-
-    <keyframe>
-        <key qpos="0 -0.96 1.16 0 -0.3 0 0.024 -0.024  0 -0.96 1.16 0 -0.3 0 0.024 -0.024  0.2 0.5 0.05 1 0 0 0"/>
-    </keyframe>
-
 
 </mujoco>
