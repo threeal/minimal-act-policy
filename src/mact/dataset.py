@@ -1,6 +1,7 @@
 import pickle
 from pathlib import Path
 
+import cv2
 import h5py
 import numpy as np
 import torch
@@ -11,41 +12,32 @@ class DatasetsLoader:
 
     class NormStats:
         def __init__(self, eps_files: list[Path]) -> None:
-            all_qpos_data = []
-            all_action_data = []
+            all_controls = []
             for eps_file in eps_files:
-                with h5py.File(eps_file, "r") as root:
-                    qpos = root["/observations/qpos"][()]
-                    action = root["/action"][()]
-                all_qpos_data.append(torch.from_numpy(qpos))
-                all_action_data.append(torch.from_numpy(action))
-            all_qpos_data = torch.stack(all_qpos_data)
-            all_action_data = torch.stack(all_action_data)
+                with h5py.File(eps_file, "r") as f:
+                    names = [
+                        "joint_controls_12",
+                        "joint_controls_34",
+                        "joint_controls_56",
+                        "gripper_controls",
+                    ]
 
-            # normalize action data
-            action_mean = all_action_data.mean(dim=[0, 1], keepdim=True)
-            action_std = all_action_data.std(dim=[0, 1], keepdim=True)
-            action_std = torch.clip(action_std, 1e-2, np.inf)  # clipping
+                    min_length = min(f[name].shape[0] for name in names)
+                    controls = np.concatenate(
+                        [f[name][:min_length, 1:] for name in names], axis=1
+                    )
 
-            # normalize qpos data
-            qpos_mean = all_qpos_data.mean(dim=[0, 1], keepdim=True)
-            qpos_std = all_qpos_data.std(dim=[0, 1], keepdim=True)
-            qpos_std = torch.clip(qpos_std, 1e-2, np.inf)  # clipping
+                    all_controls.append(torch.from_numpy(controls).float())
 
-            self.action_mean = action_mean.numpy().squeeze()
-            self.action_std = action_std.numpy().squeeze()
-            self.qpos_mean = qpos_mean.numpy().squeeze()
-            self.qpos_std = qpos_std.numpy().squeeze()
-            self.example_qpos = qpos
+            all_controls = torch.cat(all_controls)
+            self.controls_mean = all_controls.mean(dim=[0])
+            self.controls_std = torch.clip(all_controls.std(dim=[0]), 1e-2, np.inf)
 
         def dump(self, stats_path: str) -> None:
             with Path.open(stats_path, "wb") as f:
                 stats = {
-                    "action_mean": self.action_mean,
-                    "action_std": self.action_std,
-                    "qpos_mean": self.qpos_mean,
-                    "qpos_std": self.qpos_std,
-                    "example_qpos": self.example_qpos,
+                    "controls_mean": self.controls_mean,
+                    "controls_std": self.controls_std,
                 }
                 pickle.dump(stats, f)
 
@@ -66,51 +58,103 @@ class DatasetsLoader:
             return len(self.eps_files)
 
         def __getitem__(self, index: int) -> any:
-            sample_full_episode = False  # hardcode
+            with h5py.File(".records/record_0.h5py", "r") as f:
+                cam_frames_len = min(
+                    f[f"camera_frame_times_{i}"].shape[0] for i in range(2)
+                )
 
-            with h5py.File(self.eps_files[index], "r") as root:
-                original_action_shape = root["/action"].shape
-                episode_len = original_action_shape[0]
-                start_ts = 0 if sample_full_episode else self.rng.choice(episode_len)
-                # get observation at start_ts only
-                qpos = root["/observations/qpos"][start_ts]
-                image_dict = {}
-                for cam_name in self.camera_names:
-                    image_dict[cam_name] = root[f"/observations/images/{cam_name}"][
-                        start_ts
-                    ]
+                cam_frame_idx = np.random.default_rng().choice(cam_frames_len)
+                ts = f["camera_frame_times_0"][cam_frame_idx]
 
-                action = root["/action"][start_ts:]
-                action_len = episode_len - start_ts
+                cam_frames = []
+                for cam_idx in range(2):
+                    data = f[f"camera_frames_{cam_idx}/{cam_frame_idx}"][:]
+                    cam_frames.append(cv2.imdecode(data, cv2.IMREAD_COLOR))
 
-            padded_action = np.zeros(original_action_shape, dtype=np.float32)
-            padded_action[:action_len] = action
-            is_pad = np.zeros(episode_len)
-            is_pad[action_len:] = 1
+                cam_frames = torch.from_numpy(np.stack(cam_frames, axis=0)).float()
+                cam_frames = torch.einsum("k h w c -> k c h w", cam_frames)
 
-            # new axis for different cameras
-            all_cam_images = [image_dict[cam_name] for cam_name in self.camera_names]
-            all_cam_images = np.stack(all_cam_images, axis=0)
+                jc12 = f["joint_controls_12"][:]
+                jc34 = f["joint_controls_34"][:]
+                jc56 = f["joint_controls_56"][:]
+                gc = f["gripper_controls"][:]
 
-            # construct observations
-            image_data = torch.from_numpy(all_cam_images)
-            qpos_data = torch.from_numpy(qpos).float()
-            action_data = torch.from_numpy(padded_action).float()
-            is_pad = torch.from_numpy(is_pad).bool()
+                feedback = np.zeros(7)
 
-            # channel last
-            image_data = torch.einsum("k h w c -> k c h w", image_data)
+                jc12_i = 0
+                jc34_i = 0
+                jc56_i = 0
+                gc_i = 0
 
-            # normalize image and change dtype to float
-            image_data = image_data / 255.0
-            action_data = (
-                action_data - self.norm_stats.action_mean
-            ) / self.norm_stats.action_std
-            qpos_data = (
-                qpos_data - self.norm_stats.qpos_mean
-            ) / self.norm_stats.qpos_std
+                while jc12_i < jc12.shape[0] and jc12[jc12_i][0] <= ts:
+                    feedback[0] = jc12[jc12_i][1]
+                    feedback[1] = jc12[jc12_i][2]
+                    jc12_i += 1
 
-            return image_data, qpos_data, action_data, is_pad
+                while jc34_i < jc34.shape[0] and jc34[jc34_i][0] <= ts:
+                    feedback[2] = jc34[jc34_i][1]
+                    feedback[3] = jc34[jc34_i][2]
+                    jc34_i += 1
+
+                while jc56_i < jc56.shape[0] and jc56[jc56_i][0] <= ts:
+                    feedback[4] = jc56[jc56_i][1]
+                    feedback[5] = jc56[jc56_i][2]
+                    jc56_i += 1
+
+                while gc_i < gc.shape[0] and gc[gc_i][0] <= ts:
+                    feedback[6] = gc[gc_i][1]
+                    gc_i += 1
+
+                control = feedback.copy()
+                controls = np.zeros((400, 7))
+                controls_i = 0
+
+                while (
+                    controls_i < controls.shape[0]
+                    and jc12_i < jc12.shape[0]
+                    and jc34_i < jc34.shape[0]
+                    and jc56_i < jc56.shape[0]
+                    and gc_i < gc.shape[0]
+                ):
+                    ts += 1 / 60
+
+                    while jc12_i < jc12.shape[0] and jc12[jc12_i][0] <= ts:
+                        control[0] = jc12[jc12_i][1]
+                        control[1] = jc12[jc12_i][2]
+                        jc12_i += 1
+
+                    while jc34_i < jc34.shape[0] and jc34[jc34_i][0] <= ts:
+                        control[2] = jc34[jc34_i][1]
+                        control[3] = jc34[jc34_i][2]
+                        jc34_i += 1
+
+                    while jc56_i < jc56.shape[0] and jc56[jc56_i][0] <= ts:
+                        control[4] = jc56[jc56_i][1]
+                        control[5] = jc56[jc56_i][2]
+                        jc56_i += 1
+
+                    while gc_i < gc.shape[0] and gc[gc_i][0] <= ts:
+                        control[6] = gc[gc_i][1]
+                        gc_i += 1
+
+                    controls[controls_i] = control
+                    controls_i += 1
+
+                cam_frames /= 255
+
+                feedback = (
+                    torch.from_numpy(feedback).float() - self.norm_stats.controls_mean
+                ) / self.norm_stats.controls_std
+
+                controls = (
+                    torch.from_numpy(controls).float() - self.norm_stats.controls_mean
+                ) / self.norm_stats.controls_std
+
+                control_is_pads = np.zeros(400)
+                control_is_pads[controls_i:] = 1
+                control_is_pads = torch.from_numpy(control_is_pads).bool()
+
+                return cam_frames, feedback, controls, control_is_pads
 
     def __init__(
         self,
@@ -118,7 +162,7 @@ class DatasetsLoader:
         camera_names: list[str],
         batch_size: int,
     ) -> None:
-        eps_files = list(dataset_dir.glob("*.hdf5"))
+        eps_files = list(dataset_dir.glob("*.h5py"))
         eps_files = np.random.default_rng().permutation(eps_files)
 
         train_eps_files = eps_files[: int(self.TRAIN_RATIO * len(eps_files))]
