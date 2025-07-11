@@ -13,7 +13,7 @@ from .policy import ACTPolicy
 
 CKPT_DIR = "ckpt"
 EPISODE_LEN = 400
-CAMERA_NAMES = ["top"]
+CAMERA_NAMES = ["top", "gripper"]
 
 
 def train_model(args: argparse.Namespace) -> None:
@@ -57,11 +57,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     datasets_loader = DatasetsLoader(Path(".records"), CAMERA_NAMES, args.batch_size)
 
-    # save dataset stats
     os.makedirs(CKPT_DIR, exist_ok=True)
-    stats_path = os.path.join(CKPT_DIR, f"dataset_stats.pkl")
-    datasets_loader.norm_stats.dump(stats_path)
-
     best_ckpt_info = train_bc(datasets_loader.train, datasets_loader.validate, config)
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
 
@@ -138,7 +134,7 @@ def train_bc(train_dataloader, val_dataloader, config):
             summary_string += f"{k}: {v.item():.3f} "
         print(summary_string)
 
-        if epoch % 100 == 0:
+        if epoch % 500 == 0:
             ckpt_path = os.path.join(CKPT_DIR, f"policy_epoch_{epoch}_seed_{seed}.ckpt")
             torch.save(policy.state_dict(), ckpt_path)
 
