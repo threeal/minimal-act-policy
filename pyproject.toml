@@ -1,7 +1,14 @@
 [project]
 name = "mact"
 version = "0.1.0"
-dependencies = []
+dependencies = [
+    "h5py>=3.14.0",
+    "numpy>=2.3.1",
+    "opencv-python>=4.11.0.86",
+    "torch>=2.7.1",
+    "torchvision>=0.22.1",
+    "tqdm>=4.67.1",
+]
 requires-python = ">=3.13"
 authors = [
   { name = "Alfi Maulana", email = "alfi.maulana.f@gmail.com" },
@@ -34,7 +41,14 @@ dev = [
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["COM812", "D"]
+ignore = ["COM812", "D", "T201"]
 
-[tool.ruff.lint.per-file-ignores]
-"__main__.py" = ["T201"]
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
