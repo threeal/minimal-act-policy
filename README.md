@@ -6,4 +6,4 @@ A minimal implementation of the [Action Chunking with Transformers (ACT)](https:
 
 This project is licensed under the terms of the [MIT License](./LICENSE).
 
-Copyright © 2025 [Alfi Maulana](https://github.com/threeal)
+Copyright © 2025-2026 [Alfi Maulana](https://github.com/threeal)
